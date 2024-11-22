@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Buy Premium</title>
+    <style>
+      .btn {
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+      .btn:hover {
+        background-color: #0056b3;
+      }
+    </style>
+  </head>
+  <body>
+    <button class="btn" id="buyPremium">Buy Premium</button>
+
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script>
+      const buyPremiumButton = document.getElementById("buyPremium");
+
+      buyPremiumButton.addEventListener("click", async () => {
+        try {
+          const orderResponse = await fetch(
+            "http://localhost:4400/create-order",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ amount: 1, currency: "INR" }),
+            }
+          );
+
+          if (!orderResponse.ok) {
+            const errorDetails = await orderResponse.json(); // Parse error response
+            throw new Error(
+              `Failed to create order on the server: ${errorDetails.error}`
+            );
+          }
+
+          const order = await orderResponse.json();
+
+          // Step 2: Configure Razorpay options
+          const options = {
+            key: "rzp_test_Xs3a4j0VXZSOV9", // Replace with your Razorpay Key ID
+            amount: order.amount,
+            currency: order.currency,
+            name: "Premium Membership",
+            description: "Upgrade to premium features",
+            order_id: order.id, // Order ID from Razorpay
+            handler: async function (response) {
+              // Step 3: Save payment details to the server
+              const {
+                razorpay_order_id,
+                razorpay_payment_id,
+                razorpay_signature,
+              } = response;
+
+              const saveResponse = await fetch(
+                "http://localhost:4400/save-payment",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    orderId: razorpay_order_id,
+                    paymentId: razorpay_payment_id,
+                    signature: razorpay_signature,
+                  }),
+                }
+              );
+
+              if (!saveResponse.ok) {
+                throw new Error("Failed to save payment details");
+              }
+
+              const saveResult = await saveResponse.json();
+              alert(saveResult.message || "Payment successfully saved!");
+            },
+            prefill: {
+              name: "Ruma",
+              email: "rumarajput27@gmail.com",
+              contact: "9720944214",
+            },
+            theme: { color: "#007bff" },
+          };
+
+          // Step 4: Open Razorpay checkout
+          const rzp = new Razorpay(options);
+          rzp.open();
+        } catch (error) {
+          console.error(error);
+          alert(
+            "An error occurred during the payment process. Please try again."
+          );
+        }
+      });
+    </script>
+  </body>
+</html>
